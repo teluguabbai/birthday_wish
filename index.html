@@ -379,6 +379,26 @@
     .modal.open .modal-content { transform: translateY(0) scale(1); }
     .modal-content h2 { font-size: 2rem; margin-bottom: 12px; color: var(--gold); }
 
+    .typed-message {
+      min-height: 8.5em;
+      white-space: pre-wrap;
+    }
+
+    .typed-message::after {
+      content: "";
+      display: inline-block;
+      width: 2px;
+      height: 1.1em;
+      margin-left: 4px;
+      vertical-align: -0.15em;
+      background: rgba(255, 255, 255, 0.85);
+      animation: caret 0.85s step-end infinite;
+    }
+
+    .typed-message.done::after {
+      display: none;
+    }
+
     .close-modal {
       position: absolute;
       top: 16px;
@@ -448,16 +468,15 @@
           <div>
             <h1>
               <span class="title-line typing">Happy Birthday</span>
-              <span class="script friend-name">Friend Name 🎉</span>
+              <span class="script friend-name">Ankitha🎉</span>
             </h1>
           </div>
           <p class="hero-copy">
             Tonight glows a little softer, the stars sparkle a little brighter, and every beautiful moment feels made just for you.
-            This page is a small celebration of your warmth, your joy, and the light you bring everywhere you go.
           </p>
           <div class="hero-actions">
             <button class="button surprise-button" type="button">Click for Surprise 🎁</button>
-            <button class="ghost-button scroll-button" type="button">See Memories</button>
+            <!-- <button class="ghost-button scroll-button" type="button">See Memories</button> -->
           </div>
           <div class="floating-stats">
             <div class="stat"><strong>Soft Lights</strong><span>Twinkling stars, glowing hues, and dreamy motion</span></div>
@@ -482,7 +501,7 @@
         <article class="gallery-card fade-in fade-delay-2">
           <h2 class="section-title">Memory Gallery</h2>
           <p class="section-subtitle">
-            Replace these sample slides with your favorite photos and notes to make the surprise fully personal.
+            <!-- Replace these sample slides with your favorite photos and notes to make the surprise fully personal. -->
           </p>
           <div class="gallery-wrap">
             <div class="slide active">
@@ -530,14 +549,15 @@
     <div class="modal-content" role="dialog" aria-modal="true" aria-labelledby="surprise-title">
       <button class="close-modal" type="button" aria-label="Close surprise">×</button>
       <h2 id="surprise-title">A Birthday Wish Just for You</h2>
-      <p>
-        Happy Birthday, my dear friend! You are one of the most amazing people in my life. May your day be filled with happiness, laughter, and unforgettable moments. Stay blessed and keep shining always!
-      </p>
+      <p class="typed-message" id="typed-message"></p>
     </div>
   </div>
 
   <script>
     const friendName = "Friend Name";
+    const birthdayMessage = "Happy Birthday, my dear friend! You are one of the most amazing people in my life. May your day be filled with happiness, laughter, and unforgettable moments. Stay blessed and keep shining always!";
+    const bgmUrl = "";
+    const cheerUrl = "";
     document.title = `Happy Birthday ${friendName}`;
     const cursorGlow = document.querySelector(".cursor-glow");
     const heroCard = document.querySelector(".hero-card");
@@ -551,6 +571,7 @@
     const nextSlideButton = document.querySelector(".next-slide");
     const prevSlideButton = document.querySelector(".prev-slide");
     const friendNameTarget = document.querySelector(".friend-name");
+    const typedMessage = document.getElementById("typed-message");
     const fireworksCanvas = document.getElementById("fireworks-canvas");
     const confettiCanvas = document.getElementById("confetti-canvas");
     const starsCanvas = document.getElementById("stars");
@@ -560,6 +581,9 @@
     let slideInterval = null;
     let audioContext;
     let musicStarted = false;
+    let bgmAudio = null;
+    let cheerAudio = null;
+    let typewriterTimer = null;
 
     function createBalloons() {
       const colors = [
@@ -632,26 +656,56 @@
       startSlider();
     }
 
-    function openModal() {
+    function startTypewriter(text) {
+      window.clearInterval(typewriterTimer);
+      typedMessage.textContent = "";
+      typedMessage.classList.remove("done");
+      let index = 0;
+      typewriterTimer = window.setInterval(() => {
+        typedMessage.textContent = text.slice(0, index + 1);
+        index += 1;
+        if (index >= text.length) {
+          window.clearInterval(typewriterTimer);
+          typedMessage.classList.add("done");
+        }
+      }, 38);
+    }
+
+    async function openModal() {
       modal.classList.add("open");
       modal.setAttribute("aria-hidden", "false");
+      startTypewriter(birthdayMessage);
       launchConfettiBurst(260);
-      playCheerSound();
+      await playCheerSound();
       launchFireworks(5);
     }
 
     function closeModal() {
       modal.classList.remove("open");
       modal.setAttribute("aria-hidden", "true");
+      window.clearInterval(typewriterTimer);
+      typedMessage.classList.remove("done");
     }
 
-    function ensureAudio() {
+    async function ensureAudio() {
+      if (bgmUrl && !bgmAudio) {
+        bgmAudio = new Audio(bgmUrl);
+        bgmAudio.loop = true;
+        bgmAudio.preload = "auto";
+        bgmAudio.volume = 0.6;
+      }
+      if (cheerUrl && !cheerAudio) {
+        cheerAudio = new Audio(cheerUrl);
+        cheerAudio.preload = "auto";
+        cheerAudio.volume = 0.9;
+      }
       if (!audioContext) {
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
       }
       if (audioContext.state === "suspended") {
-        audioContext.resume();
+        await audioContext.resume();
       }
+      return audioContext;
     }
 
     function playTone(frequency, startTime, duration, type = "sine", volume = 0.03) {
@@ -667,10 +721,15 @@
       oscillator.stop(startTime + duration + 0.05);
     }
 
-    function startMusic() {
+    async function startMusic() {
       if (musicStarted) return;
-      ensureAudio();
+      await ensureAudio();
       musicStarted = true;
+      if (bgmAudio) {
+        bgmAudio.currentTime = 0;
+        await bgmAudio.play();
+        return;
+      }
       const notes = [
         392.0, 392.0, 440.0, 392.0, 523.25, 493.88,
         392.0, 392.0, 440.0, 392.0, 587.33, 523.25,
@@ -697,8 +756,13 @@
       playSequence();
     }
 
-    function playCheerSound() {
-      ensureAudio();
+    async function playCheerSound() {
+      await ensureAudio();
+      if (cheerAudio) {
+        cheerAudio.currentTime = 0;
+        await cheerAudio.play();
+        return;
+      }
       const base = audioContext.currentTime + 0.02;
       [523.25, 659.25, 783.99, 1046.5].forEach((note, index) => {
         playTone(note, base + index * 0.08, 0.32, "square", 0.045);
@@ -872,9 +936,9 @@
       scrollButton.addEventListener("click", () => {
         document.getElementById("memories").scrollIntoView({ behavior: "smooth", block: "start" });
       });
-      surpriseButton.addEventListener("click", () => {
-        startMusic();
-        openModal();
+      surpriseButton.addEventListener("click", async () => {
+        await startMusic();
+        await openModal();
       });
       closeModalButton.addEventListener("click", closeModal);
       modal.addEventListener("click", (event) => {
